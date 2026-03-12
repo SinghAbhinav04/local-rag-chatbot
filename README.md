@@ -8,7 +8,7 @@ A fully local, privacy-first **Retrieval-Augmented Generation (RAG)** chatbot th
 
 ## 🎬 Demo
 
-<video src="assets/video.mp4" width="100%" controls autoplay muted loop></video>
+https://github.com/user-attachments/assets/4a5e750b-2fcb-4d32-81ee-87dfa128d927
 
 ---
 
