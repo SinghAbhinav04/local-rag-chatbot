@@ -1,0 +1,10 @@
+ollama
+chromadb
+rich
+pypdf
+python-docx
+beautifulsoup4
+markdown
+pandas
+requests
+reportlab
