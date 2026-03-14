@@ -16,14 +16,16 @@ https://github.com/user-attachments/assets/4a5e750b-2fcb-4d32-81ee-87dfa128d927
 
 | Feature | Description |
 |---|---|
-| **Multi-format ingestion** | PDF, TXT, Markdown, HTML, DOCX, CSV |
-| **Live URL scraping** | `/add-url` fetches & indexes any webpage mid-session |
-| **Streaming responses** | Token-by-token output with Ctrl+C interrupt |
-| **Text-to-speech** | macOS `say` integration with toggle (`/voice`) |
+| **Reddit Optimized** | Rich extraction from Reddit `.json` endpoints with persistent JSON storage |
+| **Live URL scraping** | `/add-url` perfectly impersonates Chrome/Safari to bypass anti-bot systems |
+| **No-Context Mode** | Start a "Normal Chat" without loading any documents |
+| **Document Mgmt** | Add or remove docs mid-session from memory and disk (`/add-doc`, `/remove-doc`) |
+| **Auto-Download** | Automatically detects and downloads linked PDFs/Docs from scraped pages |
+| **Streaming & TTS** | macOS `say` integration with toggle (`/voice`) |
 | **Chat persistence** | Save/load conversations as `.md` + `.json` |
 | **PDF export** | Export any conversation to a formatted PDF |
 | **Auto-save** | Silently saves every N turns so you never lose work |
-| **Source transparency** | `/why` shows the exact chunks used for each answer |
+| **Source transparency** | Transparent indexing counts and `/why` source chunk lookup |
 | **Multi-model support** | Switch between models mid-session (`/change-model`) |
 | **Hot-swap documents** | Add or change docs without restarting (`/add-doc`, `/change-docs`) |
 
@@ -49,6 +51,9 @@ rag-system/
 ├── main.py                 # Entry point
 ├── rag.sh                  # One-click launcher (bash)
 ├── docs/                   # Drop your documents here
+├── scraped-docs/           # Automatically downloaded files from URLs
+├── reddit-json/            # Raw Reddit JSON data storage
+├── chats/                  # Saved conversation history
 ├── .gitignore
 └── README.md
 ```
@@ -123,7 +128,7 @@ bash rag.sh
 
 On launch you'll be prompted to:
 1. **Choose a model** (1–3)
-2. **Select documents** to load (by number, or `all`)
+2. **Select documents** to load (type numbers, `all`, or `skip/none` for normal chat mode)
 
 Then just type your questions. The AI will use your documents as context.
 
@@ -144,7 +149,8 @@ Then just type your questions. The AI will use your documents as context.
 | `/export-pdf [name]` | Export conversation as formatted PDF |
 | `/list-docs` | Show loaded docs and chunk counts |
 | `/add-doc` | Add a new doc from `docs/` mid-session |
-| `/add-url <url>` | Scrape & index a webpage on the fly |
+| `/add-url <url>` | Scrape & index a webpage (with anti-bot evasion) |
+| `/remove-doc` | Delete a document from memory (and optionally from disk) |
 | `/change-docs` | Swap all docs and rebuild the vector DB |
 | `/change-model` | Switch to a different LLM |
 | `/voice` | Toggle text-to-speech on/off |
