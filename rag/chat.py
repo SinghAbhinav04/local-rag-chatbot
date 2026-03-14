@@ -16,6 +16,7 @@ from rich.table import Table
 from rich import box
 
 from rag.config   import (DOC_FOLDER, CHATS_FOLDER, EXPORTS_FOLDER,
+                           SCRAPED_DOCS_FOLDER, REDDIT_JSON_FOLDER,
                            AUTOSAVE_EVERY, TOP_K)
 from rag.console  import console
 from rag import speech
@@ -398,6 +399,62 @@ def chat(
                 speech.stop_speaking()   # kill anything currently playing
             state = "[system]ON[/]" if speech.voice_enabled else "[error]OFF[/]"
             console.print(f"  Voice → {state}")
+
+        # ── /remove-doc ───────────────────────────────────────────────────
+        elif cmd == "/remove-doc":
+            if not doc_chunk_counts:
+                console.print("  [info]No documents currently loaded.[/]")
+            else:
+                table = Table(box=box.ROUNDED, show_header=True, header_style="system")
+                table.add_column("#",    style="cmd",  width=4)
+                table.add_column("File", style="info")
+                table.add_column("Chunks", style="info", justify="right")
+                
+                doc_list = sorted(doc_chunk_counts.keys())
+                for i, name in enumerate(doc_list, 1):
+                    table.add_row(str(i), name, str(doc_chunk_counts[name]))
+                console.print(table)
+                
+                pick = input("  Pick a number to remove (or 'cancel'): ").strip().lower()
+                if pick.isdigit():
+                    idx = int(pick) - 1
+                    if 0 <= idx < len(doc_list):
+                        name = doc_list[idx]
+                        
+                        # 1. Remove from ChromaDB
+                        try:
+                            console.print(f"  [system]Removing '{name}' from memory…[/]")
+                            collection.delete(where={"source": name})
+                            del doc_chunk_counts[name]
+                            # Update selected_paths and doc_names
+                            selected_paths = [p for p in selected_paths if os.path.basename(p) != name]
+                            doc_names = ", ".join(os.path.basename(p) for p in selected_paths)
+                            console.print(f"  [system]✓ Removed from session memory.[/]")
+                        except Exception as e:
+                            console.print(f"  [error]Failed to remove from database: {e}[/]")
+                        
+                        # 2. Optional: Remove from disk
+                        delete_disk = input(f"  Delete '{name}' from filesystem too? (y/n): ").strip().lower()
+                        if delete_disk == 'y':
+                            # Check all potential folders
+                            found = False
+                            for folder in [DOC_FOLDER, SCRAPED_DOCS_FOLDER, REDDIT_JSON_FOLDER]:
+                                path = os.path.join(folder, name)
+                                if os.path.exists(path):
+                                    try:
+                                        os.remove(path)
+                                        console.print(f"  [system]✓ Deleted file:[/] {path}")
+                                        found = True
+                                        break
+                                    except Exception as e:
+                                        console.print(f"  [error]Failed to delete file: {e}[/]")
+                            if not found:
+                                console.print(f"  [info]FileNotFound:[/] Metadata suggested '{name}', but file not in docs, scraped-docs, or reddit-json.")
+                        
+                    else:
+                        console.print("  [error]Invalid number.[/]")
+                else:
+                    console.print("  [info]Cancelled.[/]")
 
         # ── /change-model ─────────────────────────────────────────────────
         elif cmd == "/change-model":

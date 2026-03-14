@@ -35,8 +35,12 @@ def get_embedding(text: str) -> list[float]:
 # ──────────────────────────────────────────
 
 def build_vector_db(selected_paths: list[str]) -> tuple[chromadb.Collection, dict[str, int]]:
-    """Load docs, chunk, embed, store. Returns (collection, doc_chunk_counts)."""
     client = chromadb.Client(Settings(anonymized_telemetry=False))
+
+    if not selected_paths:
+        collection = client.get_or_create_collection(name="docs_empty", metadata={"hnsw:space": "cosine"})
+        console.print("\n  [system]✓ Started without document context.[/]\n")
+        return collection, {}
 
     col_id = hashlib.md5(",".join(sorted(selected_paths)).encode()).hexdigest()[:8]
     collection = client.get_or_create_collection(

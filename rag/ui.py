@@ -54,8 +54,13 @@ def choose_docs() -> list[str]:
         table.add_row(str(i), f, f"{size_kb} KB")
     console.print(table)
 
-    console.print("  [info]Enter numbers (spaces/commas) or 'all'[/]")
+    console.print("  [info]Enter numbers (spaces/commas), 'all', or 'skip / none' for no context[/]")
     raw = input("  Your selection: ").strip().lower()
+
+    # Flexible matching for skip keywords
+    if raw in ["0", "skip", "none", "no", "0/skip"]:
+        console.print("  [system]✓ Entering 'Normal Chat' mode (no document context).[/]")
+        return []
 
     if raw == "all":
         selected_indices = list(range(len(files)))
@@ -137,6 +142,7 @@ def print_help():
         ("/list-docs",          "Show loaded docs and their chunk counts"),
         ("/add-doc",            "Inject a new doc into the session (no rebuild)"),
         ("/add-url <url>",      "Scrape & index a webpage on the spot"),
+        ("/remove-doc",         "Delete a doc from memory (and optionally disk)"),
         ("/change-docs",        "Swap out all docs and rebuild the vector DB"),
     ]))
 

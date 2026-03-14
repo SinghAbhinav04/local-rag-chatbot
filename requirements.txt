@@ -8,3 +8,4 @@ markdown
 pandas
 requests
 reportlab
+curl-cffi

@@ -10,6 +10,8 @@ All tunables (folders, chunk sizes, model list) live here.
 DOC_FOLDER     = "docs"
 CHATS_FOLDER   = "chats"
 EXPORTS_FOLDER = "exports"
+SCRAPED_DOCS_FOLDER = "scraped-docs"
+REDDIT_JSON_FOLDER = "reddit-json"
 
 # ──────────────────────────────────────────
 # Chunking

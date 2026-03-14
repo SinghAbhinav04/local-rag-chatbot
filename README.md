@@ -57,9 +57,9 @@ rag-system/
 
 ## 🛠️ Prerequisites
 
+- **macOS ONLY** (Currently locked to macOS due to `say` TTS and `curl-cffi` TLS impersonation dependencies)
 - **Python 3.10+**
 - **[Ollama](https://ollama.com/)** installed and running
-- **macOS** (for TTS via `say` — the rest works cross-platform)
 
 ### Pull the required models
 
@@ -96,6 +96,12 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+> **Note on Web Scraping (`curl-cffi`)**: The `/add-url` feature perfectly impersonates a Chrome browser to bypass anti-bot systems. This underlying package requires `libidn2` on macOS. 
+> If you encounter `certificate verify failed` or `Library not loaded` errors when scraping, install it globally via your package manager:
+> - **MacPorts**: `sudo port install libidn2 rtmpdump`
+> - **Homebrew**: `brew install libidn2`
+> If the `pip install` fails in the virtual environment due to SSL, you may install it globally: `sudo pip3 install curl-cffi`.
 
 ### 4. Add your documents
 

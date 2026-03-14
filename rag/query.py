@@ -19,8 +19,13 @@ def run_query(
     question: str,
 ) -> tuple[str, list[dict]]:
     """Run one RAG query. Returns (answer_text, raw_chunks)."""
-    raw_chunks = retrieve_raw(collection, question)
-    context    = "\n\n---\n\n".join(f"[{c['source']}]\n{c['text']}" for c in raw_chunks)
+    # Check if collection is empty
+    if collection.count() == 0:
+        raw_chunks = []
+        context    = "No document context available."
+    else:
+        raw_chunks = retrieve_raw(collection, question)
+        context    = "\n\n---\n\n".join(f"[{c['source']}]\n{c['text']}" for c in raw_chunks)
 
     system_prompt = (
         "You are a knowledgeable AI assistant. "
