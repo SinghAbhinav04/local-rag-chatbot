@@ -9,3 +9,4 @@ pandas
 requests
 reportlab
 curl-cffi
+newsapi-python

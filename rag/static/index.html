@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent</title>
+  <meta name="description" content="Local Document Chat with RAG-powered AI assistant">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-card: #111111;
+      --bg-card-hover: #1a1a1a;
+      --bg-input: #141414;
+      --bg-sidebar: #050505;
+      --border: #222222;
+      --border-hover: #333333;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --accent: #ffffff;
+      --accent-glow: rgba(255, 255, 255, 0.05);
+      --accent-light: #ffffff;
+      --success: #ffffff;
+      --success-bg: rgba(255, 255, 255, 0.1);
+      --warning: #aaaaaa;
+      --error: #ff4444;
+      --gradient-accent: #ffffff;
+      --gradient-card: #111111;
+      --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.8);
+      --shadow-glow: 0 0 0px transparent;
+      --radius: 8px;
+      --radius-sm: 6px;
+      --radius-xs: 4px;
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Scrollbar ─────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* ── Sidebar ──────────────────────────────── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 12px;
+      gap: 4px;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .sidebar-logo .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--gradient-accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .sidebar-logo h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .sidebar-logo span {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--accent-glow);
+      color: var(--accent-light);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .nav-section {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 16px 14px 6px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .status-badge.online {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* ── Main Content ─────────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(20px);
+      background: rgba(10, 10, 15, 0.8);
+    }
+
+    .header h2 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+    }
+
+    /* ── Cards ─────────────────────────────────── */
+    .card {
+      background: var(--gradient-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: all var(--transition);
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+
+    .grid-4 {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    /* ── Badges ────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-accent {
+      background: var(--accent-glow);
+      color: var(--accent-light);
+    }
+
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge-muted {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+    }
+
+    /* ── Buttons ───────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--gradient-accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      background: #ccc;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+    }
+
+    .btn-danger {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--error);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--error);
+    }
+
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 12px;
+    }
+
+    .btn-icon {
+      padding: 8px;
+      width: 34px;
+      height: 34px;
+    }
+
+    /* ── Inputs ────────────────────────────────── */
+    .input,
+    .textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+
+    .input:focus,
+    .textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input::placeholder,
+    .textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    /* ── Select ────────────────────────────────── */
+    .select {
+      padding: 8px 32px 8px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8ba0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    .select:focus {
+      border-color: var(--accent);
+    }
+
+    /* ── Chat ──────────────────────────────────── */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .chat-msg {
+      max-width: 75%;
+      animation: msgIn 0.3s ease;
+    }
+
+    @keyframes msgIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+    }
+
+    .chat-msg.assistant {
+      align-self: flex-start;
+    }
+
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .user .msg-bubble {
+      background: var(--gradient-accent);
+      color: #000;
+      border-bottom-right-radius: 4px;
+    }
+
+    .assistant .msg-bubble {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-sources {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .msg-source {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .chat-input-bar {
+      padding: 16px 28px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: var(--bg-secondary);
+    }
+
+    .chat-input-bar .input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 14px;
+    }
+
+    .chat-input-bar .btn-primary {
+      border-radius: 14px;
+      padding: 12px 20px;
+      height: 44px;
+    }
+
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+
+    .chat-empty .logo-big {
+      width: 72px;
+      height: 72px;
+      background: var(--gradient-accent);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      box-shadow: var(--shadow-glow), 0 0 60px rgba(255, 255, 255, 0.05);
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-6px);
+      }
+    }
+
+    .chat-empty h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .chat-empty p {
+      font-size: 14px;
+      max-width: 400px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      border-bottom-left-radius: 4px;
+      align-self: flex-start;
+    }
+
+    .typing-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: typingBounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes typingBounce {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+        opacity: 0.3;
+      }
+
+      30% {
+        transform: translateY(-6px);
+        opacity: 1;
+      }
+    }
+
+    /* ── Model Cards ──────────────────────────── */
+    .model-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .model-card.active {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .model-card.active::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent-glow);
+      pointer-events: none;
+    }
+
+    .model-name {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      word-break: break-all;
+    }
+
+    .model-size {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ── Stats Row ─────────────────────────────── */
+    .stat-cards {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 140px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    /* ── Table ─────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* ── Tool Cards ────────────────────────────── */
+    .tool-card {
+      border-left: 3px solid var(--accent);
+    }
+
+    .tool-card .tool-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: var(--accent-glow);
+      margin-bottom: 12px;
+    }
+
+    .tool-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    /* ── Toast ─────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      animation: toastIn 0.3s ease;
+      max-width: 360px;
+      border: 1px solid;
+    }
+
+    .toast.success {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--success);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .toast.error {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--error);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* ── Loading spinner ──────────────────────── */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Responsive ────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 60px;
+        min-width: 60px;
+        padding: 12px 6px;
+      }
+
+      .sidebar-logo h1,
+      .sidebar-logo span,
+      .nav-item span,
+      .nav-section {
+        display: none;
+      }
+
+      .sidebar-logo {
+        padding: 8px 0 16px;
+        justify-content: center;
+      }
+
+      .nav-item {
+        justify-content: center;
+        padding: 10px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .chat-messages {
+        padding: 16px;
+      }
+
+      .chat-input-bar {
+        padding: 12px 16px;
+      }
+
+      .chat-msg {
+        max-width: 90%;
+      }
+    }
+
+    /* ── Hidden utility ────────────────────────── */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+          </path>
+        </svg></div>
+      <div>
+        <h1>RAG Agent</h1>
+        <span>PicoClaw UI</span>
+      </div>
+    </div>
+
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" data-page="chat" onclick="navigateTo('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+      <span>Chat</span>
+    </div>
+    <div class="nav-item" data-page="models" onclick="navigateTo('models')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+      <span>Models</span>
+    </div>
+
+    <div class="nav-section">Knowledge</div>
+    <div class="nav-item" data-page="docs" onclick="navigateTo('docs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      <span>Documents</span>
+    </div>
+    <div class="nav-item" data-page="tools" onclick="navigateTo('tools')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+      <span>Tools</span>
+    </div>
+
+    <div class="nav-section">Agent</div>
+    <div class="nav-item" data-page="memory" onclick="navigateTo('memory')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path
+          d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      </svg>
+      <span>Memory</span>
+    </div>
+    <div class="nav-item" data-page="skills" onclick="navigateTo('skills')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polygon
+          points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+      <span>Skills</span>
+    </div>
+
+    <div class="nav-section">System</div>
+    <div class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14" />
+        <line x1="4" y1="10" x2="4" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12" y2="3" />
+        <line x1="20" y1="21" x2="20" y2="16" />
+        <line x1="20" y1="12" x2="20" y2="3" />
+        <line x1="1" y1="14" x2="7" y2="14" />
+        <line x1="9" y1="8" x2="15" y2="8" />
+        <line x1="17" y1="16" x2="23" y2="16" />
+      </svg>
+      <span>Settings</span>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="status-badge online">
+        <div class="status-dot"></div>
+        <span id="sidebar-status">Connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- ═══ CHAT PAGE ═══ -->
+    <div id="page-chat" class="chat-container">
+      <div class="header">
+        <h2>Chat</h2>
+        <div class="header-actions">
+          <select class="select" id="chat-model-select" onchange="selectModel(this.value)">
+            <option value="">Loading models…</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="clearChat()">Clear</button>
+        </div>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-empty" id="chat-empty">
+          <div class="logo-big"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+              </path>
+            </svg></div>
+          <h3>RAG Agent</h3>
+          <p>Ask a question about your documents, or use the sidebar to add knowledge sources.</p>
+        </div>
+      </div>
+      <div id="chat-attachments-preview" style="display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 8px 16px;"></div>
+      <div class="chat-input-bar">
+        <input type="file" id="chat-file-input" multiple style="display:none" onchange="handleFileSelect(event)">
+        <button class="btn btn-secondary" onclick="document.getElementById('chat-file-input').click()"
+          style="padding:8px" title="Attach Files">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+        <input type="text" class="input" id="chat-input" placeholder="Ask anything, or attach files for Gemini..."
+          onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-primary" id="chat-send-btn" onclick="sendChat()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+          Send
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ MODELS PAGE ═══ -->
+    <div id="page-models" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Models</h2>
+        <div class="header-actions">
+          <span id="active-provider-badge"
+            style="font-size:12px;padding:4px 12px;border-radius:20px;background:var(--accent-primary);color:#fff;margin-right:8px"></span>
+          <button class="btn btn-secondary btn-sm" onclick="loadModels()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="content" id="models-content">
+        <!-- Local Ollama Models -->
+        <p class="card-desc" style="margin-bottom:20px">Local Ollama models available on your system. Click to set as
+          active.</p>
+        <div class="grid grid-3" id="models-grid"></div>
+
+        <!-- Cloud LLM Providers -->
+        <div style="margin-top:32px;border-top:1px solid var(--border-color);padding-top:24px">
+          <h3 style="font-size:16px;margin-bottom:6px">Cloud Models</h3>
+          <p class="card-desc" style="margin-bottom:16px">Configure cloud LLM providers — OpenAI, Gemini, Anthropic,
+            Groq, DeepSeek, Mistral, and more.</p>
+
+          <!-- Provider Switch -->
+          <div
+            style="margin-bottom:16px;padding:14px;background:var(--bg-input);border-radius:var(--radius-sm);display:flex;align-items:center;gap:12px">
+            <span style="font-size:13px;color:var(--text-secondary);font-weight:600">Active Provider:</span>
+            <select class="input" id="active-provider-select" onchange="activateProvider()" style="flex:1">
+              <option value="ollama">Ollama (Local)</option>
+            </select>
+          </div>
+
+          <!-- Configured Cloud Models -->
+          <div id="cloud-models-list" style="margin-bottom:16px"></div>
+
+          <!-- Configure New Cloud Model (collapsible) -->
+          <details class="card" style="padding:0">
+            <summary style="padding:14px 18px;cursor:pointer;font-weight:600;font-size:14px;color:var(--text-primary)">
+              Configure New Cloud Model
+            </summary>
+            <div style="padding:0 18px 18px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <label style="font-size:12px;color:var(--text-secondary)">Provider</label>
+                  <select class="input" id="cloud-provider-select" onchange="onProviderSelectChange()"
+                    style="width:100%;margin-top:4px">
+                    <option value="">— Select Provider —</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="groq">Groq</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="mistral">Mistral</option>
+                    <option value="together">Together AI</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="fireworks">Fireworks AI</option>
+                    <option value="custom">Custom (OpenAI-compatible)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--text-secondary)">Model Name (display label)</label>
+                  <input type="text" class="input" id="cloud-model-name" placeholder="e.g. gpt-4o, gemini-flash"
+                    style="width:100%;margin-top:4px">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <label style="font-size:12px;color:var(--text-secondary)">API Key</label>
+                  <input type="password" class="input" id="cloud-api-key" placeholder="sk-... / AIza..."
+                    style="width:100%;margin-top:4px">
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--text-secondary)">API Base URL</label>
+                  <input type="text" class="input" id="cloud-api-base" placeholder="Auto-filled for known providers"
+                    style="width:100%;margin-top:4px">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <label style="font-size:12px;color:var(--text-secondary)">Model ID (sent to API)</label>
+                  <input type="text" class="input" id="cloud-model-id" placeholder="e.g. gpt-4o, gemini-3-flash-preview"
+                    style="width:100%;margin-top:4px">
+                  <div id="cloud-model-suggestions" style="margin-top:4px;font-size:11px;color:var(--text-muted)"></div>
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                  <button class="btn btn-primary" onclick="addCloudModel()" style="width:100%">Add Cloud Model</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DOCS PAGE ═══ -->
+    <div id="page-docs" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Documents</h2>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadDocs()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="stat-cards" id="docs-stats"></div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header">
+            <span class="card-title">Add URL to Knowledge Base</span>
+          </div>
+          <div class="input-group">
+            <input type="text" class="input" id="url-input" placeholder="https://example.com/article">
+            <button class="btn btn-primary" onclick="addUrl()" id="add-url-btn">Add URL</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Loaded Documents</span>
+            <span class="badge badge-muted" id="docs-count">0 docs</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Chunks</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="docs-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TOOLS PAGE ═══ -->
+    <div id="page-tools" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Tools</h2>
+      </div>
+      <div class="content">
+        <p class="card-desc" style="margin-bottom:20px">Extend your knowledge base with external data sources.</p>
+        <div class="grid grid-2">
+          <!-- Wiki Tool -->
+          <div class="card tool-card">
+            <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg></div>
+            <h3>Wikipedia</h3>
+            <p class="card-desc" style="margin-bottom:12px">Fetch a Wikipedia article and add it to your RAG context.
+            </p>
+            <div class="input-group">
+              <input type="text" class="input" id="wiki-input" placeholder="e.g. Quantum Computing">
+              <button class="btn btn-primary btn-sm" onclick="fetchWiki()">Fetch</button>
+            </div>
+          </div>
+          <!-- Weather Tool -->
+          <div class="card tool-card">
+            <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+              </svg></div>
+            <h3>Weather</h3>
+            <p class="card-desc" style="margin-bottom:12px">Get current weather data for a city and embed it in context.
+            </p>
+            <div class="input-group">
+              <input type="text" class="input" id="weather-input" placeholder="e.g. London">
+              <button class="btn btn-primary btn-sm" onclick="fetchWeather()">Fetch</button>
+            </div>
+          </div>
+          <!-- News Tool -->
+          <div class="card tool-card">
+            <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg></div>
+            <h3>News Headlines</h3>
+            <p class="card-desc" style="margin-bottom:12px">Fetch top news headlines on a topic via NewsAPI.</p>
+            <div class="input-group">
+              <input type="text" class="input" id="news-input" placeholder="e.g. AI Technology">
+              <button class="btn btn-primary btn-sm" onclick="fetchNews('headlines')">Headlines</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchNews('everything')">Deep</button>
+            </div>
+          </div>
+          <!-- Web Scrape Tool -->
+          <div class="card tool-card">
+            <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                </path>
+              </svg></div>
+            <h3>Web Scrape & Index</h3>
+            <p class="card-desc" style="margin-bottom:12px">Scrape a webpage and add its content to your RAG context.
+            </p>
+            <div class="input-group">
+              <input type="text" class="input" id="scrape-input" placeholder="https://example.com">
+              <button class="btn btn-primary btn-sm" onclick="scrapeAndAdd()">Scrape</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SETTINGS PAGE ═══ -->
+    <div id="page-settings" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Settings</h2>
+      </div>
+      <div class="content">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header"><span class="card-title">RAG Configuration</span></div>
+            <div id="config-display"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Session Info</span></div>
+            <div id="session-display"></div>
+          </div>
+        </div>
+
+        <!-- Agent Defaults -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-header"><span class="card-title">Agent Defaults</span></div>
+          <p class="card-desc">Configure defaults for cloud LLM calls. These are used when individual models don't
+            override them.</p>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+            <div>
+              <label style="font-size:12px;color:var(--text-secondary)">Temperature</label>
+              <input type="number" class="input" id="default-temperature" step="0.1" min="0" max="2" value="0.7"
+                style="width:100%;margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text-secondary)">Max Tokens</label>
+              <input type="number" class="input" id="default-max-tokens" value="4096" style="width:100%;margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text-secondary)">Context Window</label>
+              <input type="number" class="input" id="default-context-window" value="16384"
+                style="width:100%;margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text-secondary)">Max Tool Iterations</label>
+              <input type="number" class="input" id="default-max-tool-iters" value="5" min="1" max="20"
+                style="width:100%;margin-top:4px">
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="saveAgentDefaults()" style="margin-top:12px">Save
+            Defaults</button>
+        </div>
+
+        <!-- Tools -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <span class="card-title">Agent Tools (LLM Tool Calling)</span>
+            <button class="btn btn-sm" id="tool-toggle-btn" onclick="toggleToolCalling()">Loading…</button>
+          </div>
+          <p class="card-desc">When enabled, the LLM can call tools like web search, code execution, file ops, and
+            memory management during chat.</p>
+          <div id="agent-tools-list" style="margin-top:12px"></div>
+        </div>
+
+        <!-- Cron Jobs -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <span class="card-title">Scheduled Jobs (Cron)</span>
+            <button class="btn btn-secondary btn-sm" onclick="loadCronJobs()">↻ Refresh</button>
+          </div>
+          <div id="cron-jobs-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MEMORY PAGE ═══ -->
+    <div id="page-memory" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Memory</h2>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadMemory()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Long-term Memory</span>
+              <button class="btn btn-primary btn-sm" onclick="saveMemory()">Save</button>
+            </div>
+            <p class="card-desc" style="margin-bottom:12px">Persistent facts, preferences, and key context. Injected
+              into every conversation.</p>
+            <textarea class="textarea" id="memory-editor" rows="12"
+              placeholder="No memory saved yet. Write facts, preferences, or key context here..."></textarea>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Today's Notes</span>
+              <button class="btn btn-primary btn-sm" onclick="addDailyNote()">Add Note</button>
+            </div>
+            <p class="card-desc" style="margin-bottom:12px">Daily timestamped notes. Auto-organized by date.</p>
+            <div class="input-group" style="margin-bottom:12px">
+              <input type="text" class="input" id="daily-note-input" placeholder="Type a note for today…">
+            </div>
+            <div id="today-notes"
+              style="background:var(--bg-input);border-radius:var(--radius-sm);padding:14px;font-size:13px;white-space:pre-wrap;min-height:150px;color:var(--text-secondary);max-height:300px;overflow-y:auto">
+              Loading…</div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-header"><span class="card-title">Recent Notes (Last 3 Days)</span></div>
+          <div id="recent-notes"
+            style="background:var(--bg-input);border-radius:var(--radius-sm);padding:14px;font-size:13px;white-space:pre-wrap;color:var(--text-secondary);max-height:300px;overflow-y:auto">
+            Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SKILLS PAGE ═══ -->
+    <div id="page-skills" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="header">
+        <h2>Skills</h2>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadSkills()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="content">
+        <p class="card-desc" style="margin-bottom:20px">Skills are modular capabilities loaded from
+          <code>SKILL.md</code> files. Place them in <code>./skills/</code> (workspace) or
+          <code>~/.rag-agent/skills/</code> (global).</p>
+        <div class="grid grid-2" id="skills-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    const API = '';  // Same origin
+
+    // ── Navigation ───────────────────────────────────────────────────────────
+    let currentPage = 'chat';
+
+    function navigateTo(page) {
+      document.querySelectorAll('[id^="page-"]').forEach(el => {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      });
+      const target = document.getElementById('page-' + page);
+      if (target) {
+        target.classList.remove('hidden');
+        target.style.display = page === 'chat' ? '' : 'flex';
+      }
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+      currentPage = page;
+
+      // Load data for the page
+      if (page === 'models') loadModels();
+      else if (page === 'docs') loadDocs();
+      else if (page === 'settings') loadSettings();
+      else if (page === 'memory') loadMemory();
+      else if (page === 'skills') loadSkills();
+    }
+
+    // ── Toast notifications ──────────────────────────────────────────────────
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    // ── API helpers ──────────────────────────────────────────────────────────
+    async function api(path, opts = {}) {
+      try {
+        const res = await fetch(API + path, {
+          headers: { 'Content-Type': 'application/json' },
+          ...opts,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+      } catch (e) {
+        showToast(e.message, 'error');
+        throw e;
+      }
+    }
+
+    // ── Models ───────────────────────────────────────────────────────────────
+    let allModels = [];
+    let currentModel = '';
+
+    async function loadModels() {
+      try {
+        const [data, cloudCfg] = await Promise.all([
+          api('/api/models'),
+          api('/api/cloud-config'),
+        ]);
+        allModels = data.models || [];
+        currentModel = data.current || '';
+        renderModels();
+        renderModelSelect();
+        renderCloudModels(cloudCfg);
+      } catch (e) { }
+    }
+
+    function renderModels() {
+      const grid = document.getElementById('models-grid');
+      if (!allModels.length) {
+        grid.innerHTML = '<div class="card" style="grid-column:1/-1;text-align:center;padding:40px"><p style="color:var(--text-muted)">No models found. Install models with: <code>ollama pull &lt;model&gt;</code></p></div>';
+        return;
+      }
+      grid.innerHTML = allModels.map(m => `
+        <div class="card model-card ${m.name === currentModel ? 'active' : ''}" onclick="selectModel('${m.name}')" style="cursor:pointer">
+          <div style="display:flex;justify-content:space-between;align-items:start">
+            <div>
+              <div class="model-name">${m.name}</div>
+              <div class="model-size">${m.size_label}</div>
+            </div>
+            ${m.name === currentModel ? '<span class="badge badge-accent">Active</span>' : '<span class="badge badge-muted">Available</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderCloudModels(cloudCfg) {
+      const active = cloudCfg.active_provider || 'ollama';
+      const badge = document.getElementById('active-provider-badge');
+      if (badge) badge.textContent = active === 'ollama' ? 'Local' : active;
+
+      const models = cloudCfg.cloud_models || [];
+      const list = document.getElementById('cloud-models-list');
+      if (list) {
+        list.innerHTML = models.length === 0
+          ? '<p style="color:var(--text-muted);font-size:13px;padding:10px">No cloud models configured. Use the form below to add one.</p>'
+          : models.map(m => `
+            <div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <span style="font-weight:600;font-size:14px">${escapeHtml(m.model_name)}</span>
+                <span class="badge" style="margin-left:8px;font-size:11px">${escapeHtml(m.provider)}</span>
+                ${m.model_name === active ? '<span class="badge badge-accent" style="margin-left:4px">ACTIVE</span>' : ''}
+                <br><span style="color:var(--text-muted);font-size:11px">Key: ${escapeHtml(m.api_key || '???')} · Model: ${escapeHtml(m.model || m.model_name)}</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                ${m.model_name !== active ? `<button class="btn btn-sm btn-primary" onclick="activateCloudModel('${escapeHtml(m.model_name)}')">Use</button>` : ''}
+                <button class="btn btn-sm" onclick="removeCloudModel('${escapeHtml(m.model_name)}')" style="color:var(--text-muted)">✕</button>
+              </div>
+            </div>
+          `).join('');
+      }
+
+      const sel = document.getElementById('active-provider-select');
+      if (sel) {
+        sel.innerHTML = '<option value="ollama">Ollama (Local)</option>' +
+          models.map(m => `<option value="${escapeHtml(m.model_name)}" ${m.model_name === active ? 'selected' : ''}>${escapeHtml(m.model_name)} (${escapeHtml(m.provider)})</option>`).join('');
+        sel.value = active;
+      }
+    }
+
+    function renderModelSelect() {
+      const sel = document.getElementById('chat-model-select');
+      if (!allModels.length) {
+        sel.innerHTML = '<option value="">No models available</option>';
+        return;
+      }
+      sel.innerHTML = allModels.map(m =>
+        `<option value="${m.name}" ${m.name === currentModel ? 'selected' : ''}>${m.name} · ${m.size_label}</option>`
+      ).join('');
+    }
+
+    async function selectModel(name) {
+      if (!name) return;
+      try {
+        await api('/api/models/select', {
+          method: 'POST',
+          body: JSON.stringify({ name }),
+        });
+        currentModel = name;
+        renderModels();
+        renderModelSelect();
+        showToast(`Model switched to ${name}`);
+      } catch (e) { }
+    }
+
+    async function activateCloudModel(name) {
+      try {
+        await api('/api/cloud-models/activate', { method: 'POST', body: JSON.stringify({ model_name: name }) });
+        showToast(`Activated cloud model: ${name}`);
+        loadModels();
+      } catch (e) { }
+    }
+
+    // ── Chat ─────────────────────────────────────────────────────────────────
+    let chatMessages = [];
+    let selectedFiles = [];
+
+    function handleFileSelect(event) {
+      for (const file of event.target.files) {
+        selectedFiles.push(file);
+      }
+      renderAttachments();
+      event.target.value = ''; // reset
+    }
+
+    function removeAttachment(index) {
+      selectedFiles.splice(index, 1);
+      renderAttachments();
+    }
+
+    function renderAttachments() {
+      const container = document.getElementById('chat-attachments-preview');
+      if (selectedFiles.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = selectedFiles.map((f, i) => `
+        <div style="display:flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:4px 10px;font-size:12px">
+          <span style="max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+          <button style="margin-left:6px;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0" onclick="removeAttachment(${i})">✕</button>
+        </div>
+      `).join('');
+    }
+
+    async function sendChat() {
+      const input = document.getElementById('chat-input');
+      const question = input.value.trim();
+      const hasFiles = selectedFiles.length > 0;
+      if (!question && !hasFiles) return;
+
+      input.value = '';
+      const emptyEl = document.getElementById('chat-empty');
+      if (emptyEl) emptyEl.style.display = 'none';
+
+      // Add user message
+      const fileNames = selectedFiles.map(f => f.name).join(', ');
+      const msgContent = question + (hasFiles ? (question ? `\n\n[Attached: ${fileNames}]` : `[Attached: ${fileNames}]`) : '');
+      chatMessages.push({ role: 'user', content: msgContent });
+      renderMessages();
+
+      // Show typing indicator
+      showTyping();
+
+      // Disable send button
+      const sendBtn = document.getElementById('chat-send-btn');
+      sendBtn.disabled = true;
+
+      try {
+        let attachments = [];
+        if (hasFiles) {
+          const formData = new FormData();
+          for (const file of selectedFiles) {
+            formData.append('file', file);
+          }
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          if (!uploadRes.ok) throw new Error('File upload failed');
+          const uploadData = await uploadRes.json();
+          attachments = uploadData.files || [];
+
+          // Clear selection after successful upload
+          selectedFiles = [];
+          renderAttachments();
+        }
+
+        const data = await api('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ question, attachments }),
+        });
+
+        hideTyping();
+        chatMessages.push({
+          role: 'assistant',
+          content: data.answer,
+          sources: data.sources || [],
+          tool_calls: data.tool_calls || [],
+        });
+        renderMessages();
+      } catch (e) {
+        hideTyping();
+        chatMessages.push({ role: 'assistant', content: 'Error: ' + (e.message || 'Failed to get response') });
+        renderMessages();
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    function renderMessages() {
+      const container = document.getElementById('chat-messages');
+      const emptyEl = document.getElementById('chat-empty');
+      if (chatMessages.length === 0) {
+        if (emptyEl) emptyEl.style.display = '';
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = 'none';
+
+      let html = '';
+      for (const msg of chatMessages) {
+        let toolHtml = '';
+        if (msg.tool_calls && msg.tool_calls.length) {
+          toolHtml = `<div style="margin-top:8px">${msg.tool_calls.map(tc => `
+            <details style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--accent-light)">Tool: ${escapeHtml(tc.tool)}(${Object.keys(tc.args || {}).map(k => k + '=…').join(', ')})</summary>
+              <pre style="margin:6px 0 0;padding:8px;background:var(--bg-input);border-radius:6px;overflow-x:auto;font-size:11px;color:var(--text-secondary)">${escapeHtml(JSON.stringify(tc.result, null, 2))}</pre>
+            </details>
+          `).join('')}</div>`;
+        }
+        html += `<div class="chat-msg ${msg.role}">
+          <div class="msg-bubble">${escapeHtml(msg.content)}</div>
+          ${toolHtml}
+          ${msg.sources && msg.sources.length ? `<div class="msg-sources">${msg.sources.map(s => `<span class="msg-source">${escapeHtml(s.source)}</span>`).join('')}</div>` : ''}
+        </div>`;
+      }
+      container.innerHTML = html;
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showTyping() {
+      const container = document.getElementById('chat-messages');
+      const indicator = document.createElement('div');
+      indicator.id = 'typing';
+      indicator.className = 'typing-indicator';
+      indicator.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+      container.appendChild(indicator);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+      const el = document.getElementById('typing');
+      if (el) el.remove();
+    }
+
+    async function clearChat() {
+      try {
+        await api('/api/clear', { method: 'POST' });
+        chatMessages = [];
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = `<div class="chat-empty" id="chat-empty">
+          <div class="logo-big"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div>
+          <h3>RAG Agent</h3>
+          <p>Ask a question about your documents, or use the sidebar to add knowledge sources.</p>
+        </div>`;
+        showToast('Chat cleared');
+      } catch (e) { }
+    }
+
+    // ── Documents ────────────────────────────────────────────────────────────
+    async function loadDocs() {
+      try {
+        const data = await api('/api/docs');
+        const docs = data.docs || [];
+        const totalChunks = docs.reduce((sum, d) => sum + d.chunks, 0);
+
+        document.getElementById('docs-stats').innerHTML = `
+          <div class="stat-card"><div class="stat-value">${docs.length}</div><div class="stat-label">Documents</div></div>
+          <div class="stat-card"><div class="stat-value">${totalChunks}</div><div class="stat-label">Total Chunks</div></div>
+        `;
+        document.getElementById('docs-count').textContent = `${docs.length} docs`;
+
+        const tbody = document.getElementById('docs-table');
+        if (!docs.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:30px">No documents loaded. Use the CLI or add a URL above.</td></tr>';
+        } else {
+          tbody.innerHTML = docs.map(d => `
+            <tr>
+              <td><span style="font-weight:500">${escapeHtml(d.name)}</span></td>
+              <td><span class="badge badge-muted">${d.chunks} chunks</span></td>
+              <td><button class="btn btn-danger btn-sm" onclick="removeDoc('${escapeHtml(d.name)}')">Remove</button></td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) { }
+    }
+
+    async function addUrl() {
+      const input = document.getElementById('url-input');
+      const url = input.value.trim();
+      if (!url) return;
+
+      const btn = document.getElementById('add-url-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      try {
+        await api('/api/docs/add-url', {
+          method: 'POST',
+          body: JSON.stringify({ url }),
+        });
+        input.value = '';
+        showToast('URL added to knowledge base');
+        loadDocs();
+      } catch (e) {
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Add URL';
+      }
+    }
+
+    async function removeDoc(name) {
+      if (!confirm(`Remove "${name}" from the knowledge base?`)) return;
+      try {
+        await api('/api/docs/remove', {
+          method: 'POST',
+          body: JSON.stringify({ name }),
+        });
+        showToast(`Removed "${name}"`);
+        loadDocs();
+      } catch (e) { }
+    }
+
+    // ── Tools ────────────────────────────────────────────────────────────────
+    async function fetchWiki() {
+      const input = document.getElementById('wiki-input');
+      const topic = input.value.trim();
+      if (!topic) return;
+      try {
+        const data = await api('/api/docs/add-wiki', { method: 'POST', body: JSON.stringify({ topic }) });
+        // input.value = ''; // Removed input clearing
+        showToast(`Wikipedia article "${data.title || topic}" added to context`);
+      } catch (e) { }
+    }
+
+    async function fetchWeather() {
+      const input = document.getElementById('weather-input');
+      const city = input.value.trim();
+      if (!city) return;
+      try {
+        const data = await api('/api/weather', { method: 'POST', body: JSON.stringify({ city }) });
+        // input.value = ''; // Removed input clearing
+        showToast(`Weather for ${data.city || city} added to context`);
+      } catch (e) { }
+    }
+
+    async function fetchNews(endpoint) {
+      const input = document.getElementById('news-input');
+      const query = input.value.trim();
+      if (!query && endpoint !== 'sources') return;
+      try {
+        const data = await api('/api/news', { method: 'POST', body: JSON.stringify({ query, endpoint }) });
+        showToast(`${data.count || 0} news articles added to context`);
+      } catch (e) { }
+    }
+
+    async function scrapeAndAdd() {
+      const input = document.getElementById('scrape-input');
+      const url = input.value.trim();
+      if (!url) return;
+      try {
+        await api('/api/docs/add-url', { method: 'POST', body: JSON.stringify({ url }) });
+        showToast('Page scraped and added to context');
+      } catch (e) { }
+    }
+
+    // ── Settings ─────────────────────────────────────────────────────────────
+    async function loadSettings() {
+      try {
+        const [config, status, toolsData, cloudCfg] = await Promise.all([
+          api('/api/config'),
+          api('/api/status'),
+          api('/api/tools'),
+          api('/api/cloud-config'),
+        ]);
+
+        document.getElementById('config-display').innerHTML = `
+          <div style="display:grid;gap:10px">
+            ${settingRow('Chunk Size', config.chunk_size)}
+            ${settingRow('Chunk Overlap', config.chunk_overlap)}
+            ${settingRow('Top-K Results', config.top_k)}
+            ${settingRow('Embedding Model', config.embed_model)}
+            ${settingRow('Min Model Size', config.min_model_size_mb + ' MB')}
+          </div>
+        `;
+
+        document.getElementById('session-display').innerHTML = `
+          <div style="display:grid;gap:10px">
+            ${settingRow('Active Model', status.model || 'None')}
+            ${settingRow('Loaded Docs', status.docs?.length || 0)}
+            ${settingRow('Total Chunks', status.total_chunks)}
+            ${settingRow('Conversation Turns', status.turns)}
+            ${settingRow('Voice', status.voice ? 'On' : 'Off')}
+            ${settingRow('Uptime', status.uptime)}
+          </div>
+        `;
+
+        // Tool calling toggle
+        const toggleBtn = document.getElementById('tool-toggle-btn');
+        const tcEnabled = toolsData.tool_calling;
+        toggleBtn.className = 'btn btn-sm ' + (tcEnabled ? 'btn-primary' : 'btn-secondary');
+        toggleBtn.textContent = tcEnabled ? '✓ Enabled' : '✗ Disabled';
+
+        // Agent tools list
+        const tools = toolsData.tools || [];
+        document.getElementById('agent-tools-list').innerHTML = tools.map(t => `
+          <div style="display:flex;justify-content:space-between;align-items:start">
+            <div>
+              <span style="font-weight:600;font-size:13px;font-family:'SF Mono','Fira Code',monospace">${escapeHtml(t.name)}</span>
+              <span style="color:var(--text-muted);font-size:12px;margin-left:8px">${escapeHtml(t.description).substring(0, 80)}</span>
+            </div>
+            <span class="badge badge-accent">Ready</span>
+          </div>
+        `).join('');
+
+        // Agent defaults
+        const defs = cloudCfg.agent_defaults || {};
+        document.getElementById('default-temperature').value = defs.temperature ?? 0.7;
+        document.getElementById('default-max-tokens').value = defs.max_tokens ?? 4096;
+        document.getElementById('default-context-window').value = defs.context_window ?? 16384;
+        document.getElementById('default-max-tool-iters').value = defs.max_tool_iterations ?? 5;
+
+        loadCronJobs();
+      } catch (e) { }
+    }
+
+    async function toggleToolCalling() {
+      try {
+        const data = await api('/api/tools/toggle', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: !document.getElementById('tool-toggle-btn').textContent.includes('Enabled') }),
+        });
+        showToast(data.tool_calling ? 'Tool calling enabled' : 'Tool calling disabled');
+        loadSettings();
+      } catch (e) { }
+    }
+
+    // ── Cloud Provider Management ────────────────────────────────────────────
+    const KNOWN_BASES = {
+      openai: 'https://api.openai.com/v1',
+      gemini: 'generativelanguage.googleapis.com',
+      anthropic: 'https://api.anthropic.com',
+      groq: 'https://api.groq.com/openai/v1',
+      deepseek: 'https://api.deepseek.com/v1',
+      mistral: 'https://api.mistral.ai/v1',
+      together: 'https://api.together.xyz/v1',
+      openrouter: 'https://openrouter.ai/api/v1',
+      fireworks: 'https://api.fireworks.ai/inference/v1',
+    };
+    const KNOWN_MODELS = {
+      openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-mini', 'o1-preview'],
+      gemini: ['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.5-flash-preview-05-20', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'],
+      anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+      groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+      deepseek: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
+      mistral: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest'],
+      together: ['meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'],
+      openrouter: ['openai/gpt-4o', 'anthropic/claude-sonnet-4-20250514', 'google/gemini-2.0-flash-001'],
+      fireworks: ['accounts/fireworks/models/llama-v3p1-70b-instruct'],
+    };
+
+    function onProviderSelectChange() {
+      const p = document.getElementById('cloud-provider-select').value;
+      if (KNOWN_BASES[p]) document.getElementById('cloud-api-base').value = KNOWN_BASES[p];
+      // Show model suggestions
+      const hints = document.getElementById('cloud-model-suggestions');
+      if (hints && KNOWN_MODELS[p]) {
+        hints.innerHTML = 'Suggested: ' + KNOWN_MODELS[p].map(m =>
+          `<a href="#" onclick="document.getElementById('cloud-model-id').value='${m}';document.getElementById('cloud-model-name').value='${m}';return false" style="color:var(--accent-primary);text-decoration:underline;margin-right:6px">${m}</a>`
+        ).join('');
+      } else if (hints) { hints.innerHTML = ''; }
+    }
+
+    async function addCloudModel() {
+      const provider = document.getElementById('cloud-provider-select').value;
+      const modelName = document.getElementById('cloud-model-name').value.trim();
+      const apiKey = document.getElementById('cloud-api-key').value.trim();
+      const apiBase = document.getElementById('cloud-api-base').value.trim();
+      const modelId = document.getElementById('cloud-model-id').value.trim();
+      if (!provider || !modelName || !apiKey) { showToast('Provider, model name, and API key are required', true); return; }
+      try {
+        await api('/api/cloud-models/add', {
+          method: 'POST',
+          body: JSON.stringify({ provider, model_name: modelName, api_key: apiKey, api_base: apiBase, model: modelId || modelName }),
+        });
+        showToast(`Cloud model "${modelName}" added!`);
+        document.getElementById('cloud-model-name').value = '';
+        document.getElementById('cloud-api-key').value = '';
+        document.getElementById('cloud-model-id').value = '';
+        loadModels();
+      } catch (e) { showToast('Failed to add cloud model', true); }
+    }
+
+    async function removeCloudModel(name) {
+      try {
+        await api('/api/cloud-models/remove', { method: 'POST', body: JSON.stringify({ model_name: name }) });
+        showToast(`Removed "${name}"`);
+        loadModels();
+      } catch (e) { }
+    }
+
+    async function activateProvider() {
+      const val = document.getElementById('active-provider-select').value;
+      try {
+        await api('/api/cloud-models/activate', { method: 'POST', body: JSON.stringify({ model_name: val }) });
+        showToast(val === 'ollama' ? 'Switched to Ollama (local)' : `Activated cloud model: ${val}`);
+        loadModels();
+      } catch (e) { }
+    }
+
+    async function saveAgentDefaults() {
+      try {
+        await api('/api/cloud-config/defaults', {
+          method: 'POST',
+          body: JSON.stringify({
+            temperature: parseFloat(document.getElementById('default-temperature').value),
+            max_tokens: parseInt(document.getElementById('default-max-tokens').value),
+            context_window: parseInt(document.getElementById('default-context-window').value),
+            max_tool_iterations: parseInt(document.getElementById('default-max-tool-iters').value),
+          }),
+        });
+        showToast('Agent defaults saved!');
+      } catch (e) { }
+    }
+
+    async function loadCronJobs() {
+      try {
+        const data = await api('/api/cron');
+        const el = document.getElementById('cron-jobs-list');
+        if (!data.jobs || data.jobs.length === 0) {
+          el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:10px">No scheduled jobs.</p>';
+        } else {
+          el.innerHTML = data.jobs.map(j => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--bg-input);border-radius:var(--radius-xs);margin-bottom:6px">
+              <div>
+                <span style="font-weight:600;font-size:13px">${escapeHtml(j.message)}</span>
+                <span class="badge" style="margin-left:8px;font-size:11px">${escapeHtml(j.type)}</span>
+                <span style="color:var(--text-muted);font-size:11px;margin-left:8px">Created: ${escapeHtml(j.created)}</span>
+              </div>
+              <span style="font-family:monospace;font-size:11px;color:var(--text-muted)">${escapeHtml(j.id)}</span>
+            </div>
+          `).join('');
+        }
+      } catch (e) { }
+    }
+
+    function settingRow(label, value) {
+      return `<div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg-input);border-radius:var(--radius-xs);font-size:13px">
+        <span style="color:var(--text-secondary)">${label}</span>
+        <span style="font-weight:600">${value}</span>
+      </div>`;
+    }
+
+    // ── Memory ───────────────────────────────────────────────────────────────
+    async function loadMemory() {
+      try {
+        const [mem, today] = await Promise.all([
+          api('/api/memory'),
+          api('/api/memory/today'),
+        ]);
+        document.getElementById('memory-editor').value = mem.long_term || '';
+        document.getElementById('today-notes').textContent = today.today || '(No notes for today)';
+        document.getElementById('recent-notes').textContent = mem.recent_notes || '(No recent notes)';
+      } catch (e) { }
+    }
+
+    async function saveMemory() {
+      const content = document.getElementById('memory-editor').value;
+      try {
+        await api('/api/memory', {
+          method: 'POST',
+          body: JSON.stringify({ content, mode: 'overwrite' }),
+        });
+        showToast('Memory saved');
+      } catch (e) { }
+    }
+
+    async function addDailyNote() {
+      const input = document.getElementById('daily-note-input');
+      const content = input.value.trim();
+      if (!content) return;
+      try {
+        await api('/api/memory/today', {
+          method: 'POST',
+          body: JSON.stringify({ content }),
+        });
+        input.value = '';
+        showToast('Note added');
+        loadMemory();
+      } catch (e) { }
+    }
+
+    // ── Skills ───────────────────────────────────────────────────────────────
+    async function loadSkills() {
+      try {
+        const data = await api('/api/skills');
+        const skills = data.skills || [];
+        const grid = document.getElementById('skills-grid');
+        if (!skills.length) {
+          grid.innerHTML = `<div class="card" style="grid-column:1/-1;text-align:center;padding:40px">
+            <p style="color:var(--text-muted);font-size:14px">No skills found. Create a skill by adding a folder with a <code>SKILL.md</code> file in <code>~/.rag-agent/skills/</code></p>
+          </div>`;
+          return;
+        }
+        grid.innerHTML = skills.map(s => `
+          <div class="card tool-card">
+            <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <h3>${escapeHtml(s.name)}</h3>
+              <span class="badge ${s.source === 'workspace' ? 'badge-accent' : 'badge-muted'}">${escapeHtml(s.source)}</span>
+            </div>
+            <p class="card-desc" style="margin-top:6px">${escapeHtml(s.description || 'No description')}</p>
+          </div>
+        `).join('');
+      } catch (e) { }
+    }
+
+    // ── Utilities ────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    async function restoreToolInputs() {
+      try {
+        const cloudCfg = await api('/api/cloud-config');
+        const tools = cloudCfg.tool_defaults || {};
+        ['wiki', 'weather', 'news', 'scrape'].forEach(prefix => {
+          const id = prefix + '-input';
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (tools[prefix]) el.value = tools[prefix];
+
+          el.addEventListener('change', async () => {
+            const body = {};
+            body[prefix] = el.value.trim();
+            await api('/api/tool-defaults', { method: 'POST', body: JSON.stringify(body) });
+          });
+        });
+      } catch (e) {
+        console.error("Failed to restore tool inputs", e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      restoreToolInputs();
+      loadModels();
+      document.getElementById('chat-input').focus();
+    });
+  </script>
+</body>
+
+</html>

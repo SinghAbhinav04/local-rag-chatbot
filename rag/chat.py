@@ -17,11 +17,11 @@ from rich import box
 
 from rag.config   import (DOC_FOLDER, CHATS_FOLDER, EXPORTS_FOLDER,
                            SCRAPED_DOCS_FOLDER, REDDIT_JSON_FOLDER,
-                           AUTOSAVE_EVERY, TOP_K)
+                           SCRAPED_DATA_FOLDER, AUTOSAVE_EVERY, TOP_K)
 from rag.console  import console
 from rag import speech
 from rag.vectordb import build_vector_db, add_doc_to_db
-from rag.scraper  import add_url_to_db
+from rag.scraper  import add_url_to_db, scrape_url
 from rag.export   import export_pdf
 from rag.ui       import choose_model, choose_docs, print_help
 from rag.query    import run_query
@@ -241,6 +241,104 @@ def chat(
                 except Exception as e:
                     console.print(f"  [error]Error indexing URL: {e}[/]")
 
+        # ── /scrape <url> ────────────────────────────────────────────────
+        elif cmd.startswith("/scrape"):
+            parts = question.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                console.print("  [error]Usage: /scrape <url>[/]")
+            else:
+                url = parts[1].strip()
+                try:
+                    console.print(f"  [system]Scraping to '{SCRAPED_DATA_FOLDER}'...[/]")
+                    # Pass save_standalone=True to ensure it goes to the dedicated folder
+                    # and not just the session cache.
+                    scrape_url(url, save_standalone=True)
+                except Exception as e:
+                    console.print(f"  [error]Scraping failed: {e}[/]")
+
+        # ── /get-news ────────────────────────────────────────────────────
+        elif cmd == "/get-news":
+            from rag.news import fetch_top_headlines, fetch_everything, fetch_sources, news_to_rag
+            console.print(Panel(
+                "[cmd]1[/] → Top Headlines   [info](trending news by topic)[/]\n"
+                "[cmd]2[/] → Everything       [info](broad search across all articles)[/]\n"
+                "[cmd]3[/] → Sources          [info](list all available news sources)[/]",
+                title="[system]  News Endpoint  [/]", box=box.ROUNDED
+            ))
+            pick = input("  Choose endpoint (1/2/3): ").strip()
+
+            try:
+                if pick == "1":
+                    query = input("  Search query (e.g. technology): ").strip()
+                    if not query:
+                        console.print("  [error]Query cannot be empty.[/]")
+                    else:
+                        folder, text, count = fetch_top_headlines(query)
+                        if count > 0:
+                            label = os.path.basename(folder)
+                            chunk_offset = news_to_rag(collection, text, label,
+                                                       doc_chunk_counts, chunk_offset)
+                            doc_names = ", ".join(list(doc_chunk_counts.keys()))
+
+                elif pick == "2":
+                    query = input("  Search query (e.g. AI): ").strip()
+                    if not query:
+                        console.print("  [error]Query cannot be empty.[/]")
+                    else:
+                        folder, text, count = fetch_everything(query)
+                        if count > 0:
+                            label = os.path.basename(folder)
+                            chunk_offset = news_to_rag(collection, text, label,
+                                                       doc_chunk_counts, chunk_offset)
+                            doc_names = ", ".join(list(doc_chunk_counts.keys()))
+
+                elif pick == "3":
+                    folder, text, count = fetch_sources()
+                    if count > 0:
+                        label = os.path.basename(folder)
+                        chunk_offset = news_to_rag(collection, text, label,
+                                                   doc_chunk_counts, chunk_offset)
+                        doc_names = ", ".join(list(doc_chunk_counts.keys()))
+
+                else:
+                    console.print("  [error]Invalid choice.[/]")
+
+            except Exception as e:
+                console.print(f"  [error]News fetch failed: {e}[/]")
+
+        # ── /wiki <topic> ────────────────────────────────────────────────
+        elif cmd.startswith("/wiki"):
+            parts = question.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                console.print("  [error]Usage: /wiki <topic>[/]")
+            else:
+                topic = parts[1].strip()
+                try:
+                    from rag.wiki import fetch_wiki, wiki_to_rag
+                    folder, text, title = fetch_wiki(topic)
+                    label = os.path.basename(folder)
+                    chunk_offset = wiki_to_rag(collection, text, label,
+                                               doc_chunk_counts, chunk_offset)
+                    doc_names = ", ".join(list(doc_chunk_counts.keys()))
+                except Exception as e:
+                    console.print(f"  [error]Wiki fetch failed: {e}[/]")
+
+        # ── /weather <city> ──────────────────────────────────────────────
+        elif cmd.startswith("/weather"):
+            parts = question.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                console.print("  [error]Usage: /weather <city>[/]")
+            else:
+                city = parts[1].strip()
+                try:
+                    from rag.weather import fetch_weather, weather_to_rag
+                    official_name, overview = fetch_weather(city)
+                    chunk_offset = weather_to_rag(collection, overview, official_name,
+                                                  doc_chunk_counts, chunk_offset)
+                    doc_names = ", ".join(list(doc_chunk_counts.keys()))
+                except Exception as e:
+                    console.print(f"  [error]Weather fetch failed: {e}[/]")
+
         # ── /load-chat ────────────────────────────────────────────────────
         elif cmd == "/load-chat":
             if not os.path.isdir(CHATS_FOLDER):
@@ -455,6 +553,19 @@ def chat(
                         console.print("  [error]Invalid number.[/]")
                 else:
                     console.print("  [info]Cancelled.[/]")
+
+        # ── /agent start | /agent stop ────────────────────────────────────
+        elif cmd == "/agent start":
+            from rag.agent_server import start_server
+            start_server(
+                collection, model, messages, doc_chunk_counts,
+                selected_paths, chunk_offset, session_start,
+                speech.voice_enabled,
+            )
+
+        elif cmd == "/agent stop":
+            from rag.agent_server import stop_server
+            stop_server()
 
         # ── /change-model ─────────────────────────────────────────────────
         elif cmd == "/change-model":

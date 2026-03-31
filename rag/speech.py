@@ -16,7 +16,7 @@ import threading
 # ──────────────────────────────────────────
 
 speech_queue  = queue.Queue()
-voice_enabled = True
+voice_enabled = False
 
 
 # ──────────────────────────────────────────

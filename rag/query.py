@@ -19,21 +19,24 @@ def run_query(
     question: str,
 ) -> tuple[str, list[dict]]:
     """Run one RAG query. Returns (answer_text, raw_chunks)."""
-    # Check if collection is empty
+    # Retrieve context
+    raw_chunks = []
     if collection.count() == 0:
-        raw_chunks = []
-        context    = "No document context available."
+        context = "No documents have been loaded into the system yet."
     else:
         raw_chunks = retrieve_raw(collection, question)
-        context    = "\n\n---\n\n".join(f"[{c['source']}]\n{c['text']}" for c in raw_chunks)
+        if not raw_chunks:
+            console.print("  [info](No relevant chunks found in loaded documents for this query.)[/]")
+            context = "No relevant context found for this specific query, though documents are loaded."
+        else:
+            context = "\n\n---\n\n".join(f"[{c['source']}]\n{c['text']}" for c in raw_chunks)
 
     system_prompt = (
-        "You are a knowledgeable AI assistant. "
-        "The user has loaded documents as reference material. "
-        "Use the context below to inform your answers — treat it as extra knowledge. "
-        "You are NOT restricted to only the documents; feel free to expand. "
-        "Prefer document context when relevant.\n\n"
-        f"REFERENCE CONTEXT:\n{context}"
+        "You are a helpful assistant. Use the CONTEXT below to answer the user's question. "
+        "Include specific details, numbers, and facts from the context in your answer. "
+        "Mention the source when possible.\n\n"
+        f"CONTEXT:\n{context}\n\n"
+        "Answer the question using the context above. Be detailed and specific."
     )
 
     turn_messages = (
